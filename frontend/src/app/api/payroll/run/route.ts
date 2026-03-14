@@ -3,14 +3,18 @@ import * as secp from "@noble/secp256k1";
 import { ethers } from "ethers";
 
 /**
- * BitGo REST API base URLs
- * Test: https://app.bitgo-test.com
- * Prod: https://app.bitgo.com
+ * BitGo REST API Configuration
+ *
+ * The BitGo REST API sendmany endpoint handles building, signing, and
+ * broadcasting transactions when you provide the walletPassphrase.
+ * This avoids needing the heavy BitGo SDK in the Next.js bundle.
+ *
+ * Docs: https://developers.bitgo.com/api/v2/#operation/v2.wallet.sendmany
  */
-const BITGO_BASE_URL =
+const BITGO_API_URL =
   process.env.BITGO_ENV === "prod"
-    ? "https://app.bitgo.com"
-    : "https://app.bitgo-test.com";
+    ? "https://app.bitgo.com/api/v2"
+    : "https://app.bitgo-test.com/api/v2";
 
 const BITGO_COIN = process.env.BITGO_COIN || "tbaseeth";
 
@@ -19,22 +23,13 @@ const BITGO_COIN = process.env.BITGO_COIN || "tbaseeth";
  *
  * Executes a stealth payroll run:
  * 1. Generates stealth addresses for each employee using their meta public keys
- * 2. Sends batch USDC transfers via BitGo REST API to stealth addresses on Base L2
+ * 2. Sends batch transfers via BitGo REST API to stealth addresses on Base L2
  *
- * Required env vars on Vercel:
+ * Required env vars:
  *   BITGO_ACCESS_TOKEN - BitGo API access token
  *   BITGO_HR_WALLET_ID - BitGo wallet ID for the HR issuer wallet
  *   BITGO_ENV          - "test" (default) or "prod"
  *   BITGO_COIN         - "tbaseeth" (default) for Base Sepolia testnet
- *
- * Body: {
- *   walletPassphrase: string,
- *   employees: Array<{
- *     ensName?: string,
- *     metaPublicKey: string,
- *     amountUSDC: string
- *   }>
- * }
  */
 export async function POST(req: NextRequest) {
   try {
@@ -54,7 +49,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "Server misconfiguration: BITGO_ACCESS_TOKEN and BITGO_HR_WALLET_ID must be set as environment variables",
+            "Server misconfiguration: BITGO_ACCESS_TOKEN and BITGO_HR_WALLET_ID environment variables must be set",
         },
         { status: 500 },
       );
@@ -64,9 +59,7 @@ export async function POST(req: NextRequest) {
     for (let i = 0; i < employees.length; i++) {
       if (!employees[i].metaPublicKey) {
         return NextResponse.json(
-          {
-            error: `Employee #${i + 1} is missing a stealth meta public key`,
-          },
+          { error: `Employee #${i + 1} is missing a stealth meta public key` },
           { status: 400 },
         );
       }
@@ -103,48 +96,66 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2. Execute batch transaction via BitGo REST API
+    // 2. Send batch transaction via BitGo REST API
+    // The sendmany endpoint handles build + sign + broadcast when walletPassphrase is provided
     console.log(
-      `🏦 Sending batch payroll to ${recipients.length} stealth addresses via BitGo...`,
+      `🏦 Sending batch payroll to ${recipients.length} stealth addresses via BitGo REST API...`,
+    );
+    console.log(
+      `   API: ${BITGO_API_URL}/${BITGO_COIN}/wallet/${walletId}/sendmany`,
     );
 
-    const bitgoResponse = await fetch(
-      `${BITGO_BASE_URL}/api/v2/${BITGO_COIN}/wallet/${walletId}/sendmany`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          recipients,
-          walletPassphrase,
-          message: `PrivaRoll Batch Run - ${new Date().toISOString()}`,
-        }),
+    const bitgoUrl = `${BITGO_API_URL}/${BITGO_COIN}/wallet/${walletId}/sendmany`;
+
+    const bitgoResponse = await fetch(bitgoUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
       },
-    );
+      body: JSON.stringify({
+        recipients,
+        walletPassphrase,
+        comment: `PrivaRoll Batch Run - ${new Date().toISOString()}`,
+      }),
+    });
 
-    const bitgoData = await bitgoResponse.json();
+    // Parse the response
+    let bitgoData: any;
+    const responseText = await bitgoResponse.text();
+    try {
+      bitgoData = JSON.parse(responseText);
+    } catch {
+      bitgoData = { rawResponse: responseText };
+    }
 
     if (!bitgoResponse.ok) {
-      console.error("BitGo API error:", bitgoData);
+      console.error(
+        `BitGo API error (${bitgoResponse.status}):`,
+        JSON.stringify(bitgoData, null, 2),
+      );
       return NextResponse.json(
         {
-          error: "BitGo transaction failed",
-          message:
-            bitgoData.message || bitgoData.error || "Unknown BitGo error",
+          error: `BitGo API error (${bitgoResponse.status}): ${
+            bitgoData.message ||
+            bitgoData.error ||
+            bitgoData.name ||
+            responseText.substring(0, 200)
+          }`,
           details: bitgoData,
         },
         { status: bitgoResponse.status },
       );
     }
 
-    console.log(`🎉 Payroll broadcasted! TX: ${bitgoData.txid}`);
+    const txHash =
+      bitgoData.txid || bitgoData.hash || bitgoData.tx?.hash || "pending";
+    console.log(`🎉 Payroll broadcasted! TX: ${txHash}`);
 
     // 3. Return ephemeral keys for on-chain publishing
     return NextResponse.json({
       success: true,
-      txHash: bitgoData.txid || bitgoData.hash,
+      txHash,
       ephemeralKeys,
       recipientCount: employees.length,
       timestamp: new Date().toISOString(),
@@ -153,8 +164,7 @@ export async function POST(req: NextRequest) {
     console.error("Payroll run failed:", error);
     return NextResponse.json(
       {
-        error: "Payroll execution failed",
-        message: error.message,
+        error: `Payroll execution failed: ${error.message || String(error)}`,
       },
       { status: 500 },
     );
@@ -162,7 +172,7 @@ export async function POST(req: NextRequest) {
 }
 
 // ──────────────────────────────────────────────
-// Stealth Address Generation (same crypto as backend)
+// Stealth Address Generation
 // ──────────────────────────────────────────────
 
 function generateStealthPayment(employeePublicKeyHex: string): {
