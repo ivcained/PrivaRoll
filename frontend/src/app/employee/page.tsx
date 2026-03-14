@@ -4,6 +4,11 @@ import Link from "next/link";
 import { useState } from "react";
 import { deriveStealthPrivateKey } from "@/lib/stealth";
 
+interface EphemeralKeyEntry {
+  ephemeralPublicKey: string;
+  stealthAddress: string;
+}
+
 interface ScanMatch {
   stealthAddress: string;
   ephemeralPublicKey: string;
@@ -20,6 +25,10 @@ interface SweepResult {
 
 export default function EmployeePortal() {
   const [stealthPrivateKey, setStealthPrivateKey] = useState("");
+  const [ephemeralEntries, setEphemeralEntries] = useState<EphemeralKeyEntry[]>(
+    [{ ephemeralPublicKey: "", stealthAddress: "" }],
+  );
+  const [inputMode, setInputMode] = useState<"form" | "json">("form");
   const [ephemeralKeysJson, setEphemeralKeysJson] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [matches, setMatches] = useState<ScanMatch[]>([]);
@@ -37,6 +46,36 @@ export default function EmployeePortal() {
   );
   const [sweepError, setSweepError] = useState<string | null>(null);
 
+  const addEphemeralEntry = () => {
+    setEphemeralEntries([
+      ...ephemeralEntries,
+      { ephemeralPublicKey: "", stealthAddress: "" },
+    ]);
+  };
+
+  const removeEphemeralEntry = (index: number) => {
+    setEphemeralEntries(ephemeralEntries.filter((_, i) => i !== index));
+  };
+
+  const updateEphemeralEntry = (
+    index: number,
+    field: keyof EphemeralKeyEntry,
+    value: string,
+  ) => {
+    const updated = [...ephemeralEntries];
+    updated[index][field] = value;
+    setEphemeralEntries(updated);
+  };
+
+  const hasValidEphemeralKeys = () => {
+    if (inputMode === "json") {
+      return ephemeralKeysJson.trim().length > 0;
+    }
+    return ephemeralEntries.some(
+      (e) => e.ephemeralPublicKey.trim() && e.stealthAddress.trim(),
+    );
+  };
+
   const scanForPayments = async () => {
     setIsScanning(true);
     setError(null);
@@ -46,13 +85,25 @@ export default function EmployeePortal() {
     setSweepResults(new Map());
 
     try {
-      let ephemeralKeys;
-      try {
-        ephemeralKeys = JSON.parse(ephemeralKeysJson);
-      } catch {
-        throw new Error(
-          "Invalid JSON format for ephemeral keys. Expected an array of { ephemeralPublicKey, stealthAddress }",
+      let ephemeralKeys: EphemeralKeyEntry[];
+
+      if (inputMode === "json") {
+        try {
+          ephemeralKeys = JSON.parse(ephemeralKeysJson);
+        } catch {
+          throw new Error(
+            "Invalid JSON format. Expected an array of { ephemeralPublicKey, stealthAddress }",
+          );
+        }
+      } else {
+        ephemeralKeys = ephemeralEntries.filter(
+          (e) => e.ephemeralPublicKey.trim() && e.stealthAddress.trim(),
         );
+        if (ephemeralKeys.length === 0) {
+          throw new Error(
+            "Please enter at least one ephemeral key entry with both fields filled in.",
+          );
+        }
       }
 
       const res = await fetch(`/api/stealth/scan`, {
@@ -209,22 +260,119 @@ export default function EmployeePortal() {
 
       {/* Ephemeral Keys Input */}
       <div className="mb-6 p-4 border border-gray-800 rounded-xl bg-gray-900/50">
-        <label className="block text-sm font-medium text-gray-400 mb-2">
-          Ephemeral Keys from Payroll Run
-        </label>
-        <textarea
-          value={ephemeralKeysJson}
-          onChange={(e) => setEphemeralKeysJson(e.target.value)}
-          placeholder={`Paste JSON array, e.g.:\n[\n  { "ephemeralPublicKey": "02abc...", "stealthAddress": "0x..." },\n  { "ephemeralPublicKey": "03def...", "stealthAddress": "0x..." }\n]`}
-          rows={6}
-          className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-privaroll-secondary font-mono text-sm"
-        />
+        <div className="flex items-center justify-between mb-3">
+          <label className="block text-sm font-medium text-gray-400">
+            Ephemeral Keys from Payroll Run
+          </label>
+          <div className="flex items-center gap-1 bg-gray-800 rounded-lg p-0.5">
+            <button
+              onClick={() => setInputMode("form")}
+              className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                inputMode === "form"
+                  ? "bg-privaroll-secondary/20 text-privaroll-secondary border border-privaroll-secondary/30"
+                  : "text-gray-500 hover:text-gray-300"
+              }`}
+            >
+              📝 Form
+            </button>
+            <button
+              onClick={() => setInputMode("json")}
+              className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                inputMode === "json"
+                  ? "bg-privaroll-secondary/20 text-privaroll-secondary border border-privaroll-secondary/30"
+                  : "text-gray-500 hover:text-gray-300"
+              }`}
+            >
+              {"{ }"} JSON
+            </button>
+          </div>
+        </div>
+
+        {inputMode === "form" ? (
+          <div className="space-y-3">
+            {ephemeralEntries.map((entry, i) => (
+              <div
+                key={i}
+                className="p-3 bg-gray-800/50 rounded-lg border border-gray-700/50"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-gray-500">Entry #{i + 1}</span>
+                  {ephemeralEntries.length > 1 && (
+                    <button
+                      onClick={() => removeEphemeralEntry(i)}
+                      className="text-red-400 hover:text-red-300 text-xs"
+                    >
+                      ✕ Remove
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">
+                      Ephemeral Public Key
+                    </label>
+                    <input
+                      type="text"
+                      value={entry.ephemeralPublicKey}
+                      onChange={(e) =>
+                        updateEphemeralEntry(
+                          i,
+                          "ephemeralPublicKey",
+                          e.target.value,
+                        )
+                      }
+                      placeholder="02abc... or 03def..."
+                      className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-600 focus:outline-none focus:border-privaroll-secondary font-mono text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">
+                      Stealth Address
+                    </label>
+                    <input
+                      type="text"
+                      value={entry.stealthAddress}
+                      onChange={(e) =>
+                        updateEphemeralEntry(
+                          i,
+                          "stealthAddress",
+                          e.target.value,
+                        )
+                      }
+                      placeholder="0x..."
+                      className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-600 focus:outline-none focus:border-privaroll-secondary font-mono text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+            <button
+              onClick={addEphemeralEntry}
+              className="w-full py-2 border border-dashed border-gray-700 rounded-lg text-gray-500 hover:text-gray-300 hover:border-gray-500 transition-colors text-sm"
+            >
+              + Add Another Entry
+            </button>
+          </div>
+        ) : (
+          <textarea
+            value={ephemeralKeysJson}
+            onChange={(e) => setEphemeralKeysJson(e.target.value)}
+            placeholder={`Paste JSON array, e.g.:\n[\n  { "ephemeralPublicKey": "02abc...", "stealthAddress": "0x..." },\n  { "ephemeralPublicKey": "03def...", "stealthAddress": "0x..." }\n]`}
+            rows={6}
+            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-privaroll-secondary font-mono text-sm"
+          />
+        )}
+
+        <p className="text-xs text-gray-600 mt-2">
+          💡 Get these values from the HR dashboard after a payroll run is
+          executed.
+        </p>
       </div>
 
       {/* Scan Button */}
       <button
         onClick={scanForPayments}
-        disabled={isScanning || !stealthPrivateKey || !ephemeralKeysJson}
+        disabled={isScanning || !stealthPrivateKey || !hasValidEphemeralKeys()}
         className="w-full py-3 bg-gradient-to-r from-privaroll-secondary to-privaroll-primary text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isScanning
