@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🛡️ PrivaRoll (Base Edition)
 **Public Solvency. Unlinkable Distributions. Enterprise Web3 Payroll on Base.**
 
@@ -235,3 +236,6 @@ bitgo.authenticateWithAccessToken({ accessToken: 'YOUR_TOKEN' });
 ## 📜 License
 
 MIT — See [LICENSE](./LICENSE) for details.
+=======
+# PrivaRoll
+>>>>>>> 26bceee243be354196bed183cf0a52611ae6f661
