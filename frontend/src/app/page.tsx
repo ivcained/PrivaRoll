@@ -23,9 +23,6 @@ export default function HomePage() {
           <span className="px-3 py-1 bg-blue-600/20 border border-blue-500/30 rounded-full text-sm text-blue-400">
             Deployed on Base EVM
           </span>
-          <span className="px-3 py-1 bg-orange-600/20 border border-orange-500/30 rounded-full text-sm text-orange-400">
-            Powered by BitGo
-          </span>
           <span className="px-3 py-1 bg-purple-600/20 border border-purple-500/30 rounded-full text-sm text-purple-400">
             ENS Integrated
           </span>
@@ -88,7 +85,7 @@ export default function HomePage() {
             Stealth Derivation
           </span>
           <span>→</span>
-          <span className="px-3 py-1 bg-gray-800 rounded">BitGo Batch TX</span>
+          <span className="px-3 py-1 bg-gray-800 rounded">Batch Transfer</span>
           <span>→</span>
           <span className="px-3 py-1 bg-gray-800 rounded">
             Private Retrieval

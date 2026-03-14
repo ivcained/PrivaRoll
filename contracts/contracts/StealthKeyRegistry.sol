@@ -81,7 +81,7 @@ contract StealthKeyRegistry is Ownable {
     // ──────────────────────────────────────────────
 
     /**
-     * @notice Add an authorized issuer (e.g., HR multisig managed by BitGo)
+     * @notice Add an authorized issuer (e.g., HR multisig)
      * @param issuer The address to authorize
      */
     function addAuthorizedIssuer(address issuer) external onlyOwner {

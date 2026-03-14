@@ -9,22 +9,13 @@ import { ethers } from "ethers";
  * 1. Generates stealth addresses for each employee using their meta public keys
  * 2. Sends ETH/native transfers directly to stealth addresses using ethers.js
  *
- * BitGo's sendMany requires BitGo Express (a local signing proxy) which can't
- * run on Vercel serverless. Instead, we use ethers.js to sign and broadcast
- * transactions directly to Base Sepolia via the RPC endpoint.
- *
  * Required env vars:
  *   PAYROLL_PRIVATE_KEY  - Private key of the HR payroll wallet (for signing)
  *   BASE_SEPOLIA_RPC_URL - Base Sepolia RPC endpoint (default: https://sepolia.base.org)
- *
- * Optional env vars for BitGo Express mode (if you run BitGo Express yourself):
- *   BITGO_EXPRESS_URL    - URL of your BitGo Express instance
- *   BITGO_ACCESS_TOKEN   - BitGo API access token
- *   BITGO_HR_WALLET_ID   - BitGo wallet ID
  */
 export async function POST(req: NextRequest) {
   try {
-    const { walletPassphrase, employees } = await req.json();
+    const { employees } = await req.json();
 
     if (!employees || !Array.isArray(employees)) {
       return NextResponse.json(
@@ -33,17 +24,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if BitGo Express is configured (preferred for production)
-    const bitgoExpressUrl = process.env.BITGO_EXPRESS_URL;
-    if (bitgoExpressUrl) {
-      return await handleBitGoExpress(
-        bitgoExpressUrl,
-        walletPassphrase,
-        employees,
-      );
-    }
-
-    // Fallback: Direct ethers.js signing (for hackathon demo / development)
     return await handleDirectSigning(employees);
   } catch (error: any) {
     console.error("Payroll run failed:", error);
@@ -75,7 +55,7 @@ async function handleDirectSigning(
     return NextResponse.json(
       {
         error:
-          "Server misconfiguration: PAYROLL_PRIVATE_KEY or DEPLOYER_PRIVATE_KEY must be set. Alternatively, set BITGO_EXPRESS_URL to use BitGo Express.",
+          "Server misconfiguration: PAYROLL_PRIVATE_KEY or DEPLOYER_PRIVATE_KEY must be set.",
       },
       { status: 500 },
     );
@@ -164,92 +144,6 @@ async function handleDirectSigning(
     success: true,
     txHash: primaryTxHash,
     allTxHashes: txHashes,
-    ephemeralKeys,
-    recipientCount: employees.length,
-    timestamp: new Date().toISOString(),
-  });
-}
-
-/**
- * BitGo Express mode: Proxy the request to a running BitGo Express instance.
- * BitGo Express handles the key decryption, signing, and broadcasting.
- */
-async function handleBitGoExpress(
-  expressUrl: string,
-  walletPassphrase: string,
-  employees: Array<{
-    ensName?: string;
-    metaPublicKey: string;
-    amountETH: string;
-  }>,
-) {
-  const accessToken = process.env.BITGO_ACCESS_TOKEN;
-  const walletId = process.env.BITGO_HR_WALLET_ID;
-  const coin = process.env.BITGO_COIN || "tbaseeth";
-
-  if (!accessToken || !walletId || !walletPassphrase) {
-    return NextResponse.json(
-      {
-        error:
-          "Missing BitGo configuration: BITGO_ACCESS_TOKEN, BITGO_HR_WALLET_ID, and walletPassphrase are required",
-      },
-      { status: 400 },
-    );
-  }
-
-  // Generate stealth addresses
-  const ephemeralKeys: Array<{
-    ensName?: string;
-    ephemeralPublicKey: string;
-    stealthAddress: string;
-  }> = [];
-
-  const recipients: Array<{ address: string; amount: string }> = [];
-
-  for (const emp of employees) {
-    const result = generateStealthPayment(emp.metaPublicKey);
-    ephemeralKeys.push({
-      ensName: emp.ensName,
-      ephemeralPublicKey: result.ephemeralPublicKey,
-      stealthAddress: result.stealthAddress,
-    });
-    recipients.push({
-      address: result.stealthAddress,
-      amount: emp.amountETH,
-    });
-  }
-
-  // Call BitGo Express sendmany endpoint
-  const sendManyUrl = `${expressUrl}/api/v2/${coin}/wallet/${walletId}/sendmany`;
-
-  const response = await fetch(sendManyUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify({
-      recipients,
-      walletPassphrase,
-      message: `PrivaRoll Batch Run - ${new Date().toISOString()}`,
-    }),
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    return NextResponse.json(
-      {
-        error: `BitGo Express error: ${data.message || data.error || JSON.stringify(data)}`,
-        details: data,
-      },
-      { status: response.status },
-    );
-  }
-
-  return NextResponse.json({
-    success: true,
-    txHash: data.txid || data.hash,
     ephemeralKeys,
     recipientCount: employees.length,
     timestamp: new Date().toISOString(),

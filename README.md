@@ -2,13 +2,12 @@
 **Public Solvency. Unlinkable Distributions. Enterprise Web3 Payroll on Base.**
 
 [![Deployed on Base](https://img.shields.io/badge/Deployed_on-Base_EVM-blue?style=for-the-badge)](https://base.org)
-[![Powered by BitGo](https://img.shields.io/badge/Powered_by-BitGo_SDK-orange?style=for-the-badge)](https://bitgo.com)
 [![ENS Integrated](https://img.shields.io/badge/Integrated-ENS-blueviolet?style=for-the-badge)](https://ens.domains)
 
 ## 🛑 The Problem: Web3 Payroll is a Privacy Disaster
 In traditional blockchain transactions, amounts and recipients are completely public. For payroll, this is catastrophic. Anyone—competitors, colleagues, or malicious actors—can analyze a company's burn rate, compare salaries, and target high-earning employees. 
 
-**PrivaRoll** solves this by combining the speed and scale of **Base EVM** with **Stealth Addresses** and **BitGo's Enterprise Policies**. We enable companies to disburse payroll on-chain without ever linking a specific salary to a specific employee's main identity.
+**PrivaRoll** solves this by combining the speed and scale of **Base EVM** with **Stealth Addresses**. We enable companies to disburse payroll on-chain without ever linking a specific salary to a specific employee's main identity.
 
 ---
 
@@ -16,7 +15,6 @@ In traditional blockchain transactions, amounts and recipients are completely pu
 
 We purposely built PrivaRoll's architecture to push the boundaries of Web3 privacy and enterprise composability:
 
-* **🏦 BitGo DeFi Composability & Privacy:** PrivaRoll utilizes BitGo's SDK to programmatically generate fresh, one-time stealth addresses per transaction. We disburse funds from a BitGo multisig to these unlinkable recipient addresses on Base EVM, fulfilling the exact prompt for the BitGo privacy track.
 * **🛡️ Privacy (Private Transaction Rails):** By implementing stealth address architecture (ERC-5564 concepts) on Base, we break the link between the sender (Company) and the receiver (Employee identity). The public sees ETH moving, but cannot map salaries to individuals.
 * **🌐 ENS Integration (Creative Application):** We integrated ENS so employees can register their Stealth Meta-Addresses to their public `.eth` names. HR simply enters `alice.eth`, and the protocol derives the one-time stealth address for that specific pay period automatically.
 * **🌟 BEST Project:** A massive TradFi/Web3 friction point solved with a beautiful, production-ready demo on Base L2.
@@ -30,22 +28,14 @@ PrivaRoll operates using an Off-Chain Calculation / On-Chain Obfuscation model:
 1. **ENS Registry:** Employees publish their Stealth Meta-Keys to their ENS text records.
 2. **Payroll Computation:** HR calculates the net pay (base + bonus - deductions) in their local, secure dashboard.
 3. **Stealth Derivation:** For a payroll run, PrivaRoll's backend reads the ENS Meta-Keys and generates a unique, single-use Base EVM address for every employee.
-4. **Institutional Execution:** HR submits the batch payroll request to the `IssuerMultisig` (managed by BitGo). Once approved by the CFO, the BitGo SDK broadcasts the batch ETH transfers on the Base network.
+4. **Batch Execution:** HR submits the batch payroll request. The system broadcasts ETH transfers to the generated stealth addresses on the Base network.
 5. **Private Retrieval:** The employee's local client scans the Base network, detects the stealth payment using their private viewing key, and grants them access to their funds.
-
-### The "Break-Glass" Compliance Engine
-If an auditor requires access to payroll records:
-1. Auditor submits a request via `GovMultisig` (BitGo).
-2. Company approves via `IssuerMultisig`.
-3. **BitGo SDK Policy triggers a 24-hour time-delay lock.**
-4. Post-timelock, the system exports the cryptographic link between the stealth addresses and the employee's main identity for that specific pay period only.
 
 ---
 
 ## 🛠️ Tech Stack
 
 * **Blockchain:** Base EVM (L2) — [docs.base.org](https://docs.base.org/get-started/base)
-* **Institutional Governance:** BitGo JS SDK — [developers.bitgo.com](https://developers.bitgo.com/docs/get-started-quick-start)
 * **Privacy Layer:** Stealth Address Cryptography (Diffie-Hellman key exchange, ERC-5564)
 * **Frontend Identity:** ENS (wagmi, viem)
 * **Web App:** Next.js 14 (App Router), Tailwind CSS
@@ -72,17 +62,15 @@ PrivaRoll/
 │   ├── package.json
 │   └── tsconfig.json
 │
-├── backend/                # Backend Server (Express + BitGo SDK)
+├── backend/                # Backend Server (Express)
 │   ├── src/
 │   │   ├── index.ts                # Express server entry point
 │   │   ├── lib/
 │   │   │   └── stealth.ts          # Stealth address cryptography (ECDH)
-│   │   ├── routes/
-│   │   │   ├── health.ts           # Health check endpoint
-│   │   │   ├── payroll.ts          # POST /api/payroll/run, GET /api/payroll/balance
-│   │   │   └── stealth.ts          # Stealth key generation & scanning endpoints
-│   │   └── services/
-│   │       └── bitgoPayroll.ts     # BitGo SDK integration (sendMany batch TX)
+│   │   └── routes/
+│   │       ├── health.ts           # Health check endpoint
+│   │       ├── payroll.ts          # POST /api/payroll/run
+│   │       └── stealth.ts          # Stealth key generation & scanning endpoints
 │   ├── package.json
 │   └── tsconfig.json
 │
@@ -118,7 +106,6 @@ PrivaRoll/
 
 - Node.js >= 18.x
 - npm or yarn
-- A [BitGo Test Account](https://app.bitgo-test.com/signup) with an access token
 - Base Sepolia ETH for gas (from [Base Sepolia Faucet](https://www.coinbase.com/faucets/base-ethereum-goerli-faucet))
 
 ### 1. Clone & Configure Environment
@@ -131,9 +118,8 @@ cd PrivaRoll
 cp .env.example .env
 
 # Edit .env and fill in your values:
-#   - BITGO_ACCESS_TOKEN (from https://app.bitgo-test.com)
 #   - DEPLOYER_PRIVATE_KEY (your testnet wallet)
-#   - BITGO_HR_WALLET_ID (after creating a wallet in BitGo)
+#   - PAYROLL_PRIVATE_KEY (HR payroll signing wallet)
 ```
 
 ### 2. Smart Contracts (Base Sepolia Deploy)
@@ -183,33 +169,6 @@ npm run dev
 
 ---
 
-## 🔑 BitGo Setup Guide
-
-Follow the [BitGo Quick Start](https://developers.bitgo.com/docs/get-started-quick-start):
-
-1. **Create a Test Account:** Go to [app.bitgo-test.com/signup](https://app.bitgo-test.com/signup)
-2. **Create an Access Token:** In account settings, generate a long-lived token
-3. **Create a Wallet:** Using the SDK or dashboard, create a **`tbaseeth`** wallet (Base Sepolia ETH)
-   > ⚠️ **Note:** BitGo's test environment currently supports `tbaseeth` (Base Sepolia ETH) as the available coin type. For production, use `baseeth` or the appropriate token coin.
-4. **Fund the Wallet:** Transfer Base Sepolia testnet ETH to your BitGo wallet (use the [Base Sepolia Faucet](https://www.coinbase.com/faucets/base-ethereum-goerli-faucet))
-5. **Set the Token:** Add `BITGO_ACCESS_TOKEN` and `BITGO_HR_WALLET_ID` to your `.env` file
-
-```javascript
-// Quick test to verify your BitGo connection:
-const { BitGo } = require('bitgo');
-const bitgo = new BitGo({ env: 'test' });
-bitgo.authenticateWithAccessToken({ accessToken: 'YOUR_TOKEN' });
-
-// Create a tbaseeth wallet:
-const wallet = await bitgo.coin('tbaseeth').wallets().generateWallet({
-  label: 'PrivaRoll HR Wallet',
-  passphrase: 'your-secure-passphrase',
-});
-console.log('Wallet ID:', wallet.wallet.id());
-```
-
----
-
 ## 🌐 Base Network Reference
 
 | Property | Base Sepolia (Testnet) | Base Mainnet |
@@ -217,7 +176,6 @@ console.log('Wallet ID:', wallet.wallet.id());
 | Chain ID | 84532 | 8453 |
 | RPC URL | https://sepolia.base.org | https://mainnet.base.org |
 | Explorer | https://sepolia.basescan.org | https://basescan.org |
-| BitGo Coin | `tbaseeth` | `baseeth` |
 | Docs | [docs.base.org](https://docs.base.org/get-started/base) | [docs.base.org](https://docs.base.org) |
 
 ---
@@ -229,8 +187,7 @@ console.log('Wallet ID:', wallet.wallet.id());
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/health` | Health check |
-| POST | `/api/payroll/run` | Execute batch payroll via BitGo |
-| GET | `/api/payroll/balance` | Get HR wallet balance |
+| POST | `/api/payroll/run` | Execute batch payroll to stealth addresses |
 | POST | `/api/stealth/generate-meta-keys` | Generate new stealth meta-keys |
 | POST | `/api/stealth/derive-address` | Derive a one-time stealth address |
 | POST | `/api/stealth/scan` | Scan for payments matching your key |
@@ -241,7 +198,6 @@ console.log('Wallet ID:', wallet.wallet.id());
 
 - **Never commit `.env` files** — they contain private keys and API tokens
 - **Stealth private keys** are generated and stored locally by employees
-- **BitGo policies** enforce multi-sig approval for all payroll transactions
 - **24-hour timelock** on compliance data exports prevents unauthorized access
 - All stealth address math uses **@noble/secp256k1** (audited, zero-dependency)
 

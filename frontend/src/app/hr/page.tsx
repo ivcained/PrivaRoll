@@ -96,7 +96,7 @@ export default function HRDashboard() {
             </span>
           </h1>
           <p className="text-gray-400 mt-1">
-            Run payroll to stealth addresses via BitGo on Base
+            Run payroll to stealth addresses on Base
           </p>
         </div>
       </div>
@@ -104,7 +104,7 @@ export default function HRDashboard() {
       {/* Wallet Passphrase */}
       <div className="mb-6 p-4 border border-gray-800 rounded-xl bg-gray-900/50">
         <label className="block text-sm font-medium text-gray-400 mb-2">
-          BitGo Wallet Passphrase
+          Wallet Passphrase
         </label>
         <input
           type="password"
