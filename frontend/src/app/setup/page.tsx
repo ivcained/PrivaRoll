@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useState } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 const REGISTRY_ADDRESS = process.env.NEXT_PUBLIC_STEALTH_REGISTRY_ADDRESS || "";
 
 interface GeneratedKeys {
@@ -24,7 +23,7 @@ export default function SetupPage() {
     setError(null);
 
     try {
-      const res = await fetch(`${API_URL}/api/stealth/generate-meta-keys`, {
+      const res = await fetch(`/api/stealth/generate-meta-keys`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });

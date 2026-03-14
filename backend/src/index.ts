@@ -17,9 +17,26 @@ const PORT = process.env.BACKEND_PORT || 4000;
 // Middleware
 // ──────────────────────────────────────────────
 app.use(helmet());
+
+// CORS: Allow configured frontend URL, Vercel deployments, and localhost
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  "http://localhost:3000",
+  "http://localhost:3001",
+].filter(Boolean) as string[];
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: (origin, callback) => {
+      // Allow requests with no origin (server-to-server, curl, etc.)
+      if (!origin) return callback(null, true);
+      // Allow configured origins
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      // Allow any Vercel deployment
+      if (origin.endsWith(".vercel.app")) return callback(null, true);
+      // Block others
+      callback(new Error(`CORS: Origin ${origin} not allowed`));
+    },
     credentials: true,
   }),
 );

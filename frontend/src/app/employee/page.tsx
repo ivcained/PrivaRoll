@@ -3,8 +3,6 @@
 import Link from "next/link";
 import { useState } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-
 interface ScanMatch {
   stealthAddress: string;
   ephemeralPublicKey: string;
@@ -35,7 +33,7 @@ export default function EmployeePortal() {
         );
       }
 
-      const res = await fetch(`${API_URL}/api/stealth/scan`, {
+      const res = await fetch(`/api/stealth/scan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stealthPrivateKey, ephemeralKeys }),
