@@ -20,7 +20,7 @@ export const payrollRouter = Router();
  *   employees: Array<{
  *     ensName?: string,
  *     metaPublicKey: string,
- *     amountUSDC: string  // in base units (e.g., "5000000" for 5 USDC)
+ *     amountUSDC: string  // in base units (wei for ETH on testnet, e.g., "5000000000000000" for 0.005 ETH)
  *   }>
  * }
  */

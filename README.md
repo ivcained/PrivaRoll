@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # 🛡️ PrivaRoll (Base Edition)
 **Public Solvency. Unlinkable Distributions. Enterprise Web3 Payroll on Base.**
 
@@ -18,7 +17,7 @@ In traditional blockchain transactions, amounts and recipients are completely pu
 We purposely built PrivaRoll's architecture to push the boundaries of Web3 privacy and enterprise composability:
 
 * **🏦 BitGo DeFi Composability & Privacy:** PrivaRoll utilizes BitGo's SDK to programmatically generate fresh, one-time stealth addresses per transaction. We disburse funds from a BitGo multisig to these unlinkable recipient addresses on Base EVM, fulfilling the exact prompt for the BitGo privacy track.
-* **🛡️ Privacy (Private Transaction Rails):** By implementing stealth address architecture (ERC-5564 concepts) on Base, we break the link between the sender (Company) and the receiver (Employee identity). The public sees USDC moving, but cannot map salaries to individuals.
+* **🛡️ Privacy (Private Transaction Rails):** By implementing stealth address architecture (ERC-5564 concepts) on Base, we break the link between the sender (Company) and the receiver (Employee identity). The public sees ETH moving, but cannot map salaries to individuals.
 * **🌐 ENS Integration (Creative Application):** We integrated ENS so employees can register their Stealth Meta-Addresses to their public `.eth` names. HR simply enters `alice.eth`, and the protocol derives the one-time stealth address for that specific pay period automatically.
 * **🌟 BEST Project:** A massive TradFi/Web3 friction point solved with a beautiful, production-ready demo on Base L2.
 
@@ -31,8 +30,8 @@ PrivaRoll operates using an Off-Chain Calculation / On-Chain Obfuscation model:
 1. **ENS Registry:** Employees publish their Stealth Meta-Keys to their ENS text records.
 2. **Payroll Computation:** HR calculates the net pay (base + bonus - deductions) in their local, secure dashboard.
 3. **Stealth Derivation:** For a payroll run, PrivaRoll's backend reads the ENS Meta-Keys and generates a unique, single-use Base EVM address for every employee.
-4. **Institutional Execution:** HR submits the batch payroll request to the `IssuerMultisig` (managed by BitGo). Once approved by the CFO, the BitGo SDK broadcasts the batch USDC transfers on the Base network.
-5. **Private Retrieval:** The employee's local client scans the Base network, detects the stealth payment using their private viewing key, and grants them access to their USDC.
+4. **Institutional Execution:** HR submits the batch payroll request to the `IssuerMultisig` (managed by BitGo). Once approved by the CFO, the BitGo SDK broadcasts the batch ETH transfers on the Base network.
+5. **Private Retrieval:** The employee's local client scans the Base network, detects the stealth payment using their private viewing key, and grants them access to their funds.
 
 ### The "Break-Glass" Compliance Engine
 If an auditor requires access to payroll records:
@@ -58,7 +57,7 @@ If an auditor requires access to payroll records:
 
 ```
 PrivaRoll/
-├── .env.example            # Environment variable template
+├── .env                    # Environment variables (DO NOT COMMIT)
 ├── .gitignore              # Git ignore rules
 ├── README.md               # This file
 │
@@ -93,7 +92,13 @@ PrivaRoll/
     │   │   ├── globals.css          # Tailwind global styles
     │   │   ├── layout.tsx           # Root layout with providers
     │   │   ├── page.tsx             # Home page (dashboard selector)
-    │   │   └── providers.tsx        # Wagmi + React Query providers
+    │   │   ├── providers.tsx        # Wagmi + React Query providers
+    │   │   ├── hr/
+    │   │   │   └── page.tsx         # HR Dashboard (run payroll)
+    │   │   ├── employee/
+    │   │   │   └── page.tsx         # Employee Portal (scan & claim)
+    │   │   └── setup/
+    │   │       └── page.tsx         # Setup & Keys (generate meta-keys)
     │   ├── components/
     │   │   └── EmployeeInput.tsx    # ENS-integrated employee lookup
     │   └── lib/
@@ -184,15 +189,23 @@ Follow the [BitGo Quick Start](https://developers.bitgo.com/docs/get-started-qui
 
 1. **Create a Test Account:** Go to [app.bitgo-test.com/signup](https://app.bitgo-test.com/signup)
 2. **Create an Access Token:** In account settings, generate a long-lived token
-3. **Create a Wallet:** Using the SDK or dashboard, create a `tbase:usdc` wallet
-4. **Fund the Wallet:** Transfer testnet USDC to your BitGo wallet
-5. **Set the Token:** Add `BITGO_ACCESS_TOKEN` to your `.env` file
+3. **Create a Wallet:** Using the SDK or dashboard, create a **`tbaseeth`** wallet (Base Sepolia ETH)
+   > ⚠️ **Note:** BitGo's test environment currently supports `tbaseeth` (Base Sepolia ETH) as the available coin type. USDC on Base testnet is not available in the SDK. For production, use `baseeth` or the appropriate token coin.
+4. **Fund the Wallet:** Transfer Base Sepolia testnet ETH to your BitGo wallet (use the [Base Sepolia Faucet](https://www.coinbase.com/faucets/base-ethereum-goerli-faucet))
+5. **Set the Token:** Add `BITGO_ACCESS_TOKEN` and `BITGO_HR_WALLET_ID` to your `.env` file
 
 ```javascript
 // Quick test to verify your BitGo connection:
 const { BitGo } = require('bitgo');
 const bitgo = new BitGo({ env: 'test' });
 bitgo.authenticateWithAccessToken({ accessToken: 'YOUR_TOKEN' });
+
+// Create a tbaseeth wallet:
+const wallet = await bitgo.coin('tbaseeth').wallets().generateWallet({
+  label: 'PrivaRoll HR Wallet',
+  passphrase: 'your-secure-passphrase',
+});
+console.log('Wallet ID:', wallet.wallet.id());
 ```
 
 ---
@@ -204,6 +217,7 @@ bitgo.authenticateWithAccessToken({ accessToken: 'YOUR_TOKEN' });
 | Chain ID | 84532 | 8453 |
 | RPC URL | https://sepolia.base.org | https://mainnet.base.org |
 | Explorer | https://sepolia.basescan.org | https://basescan.org |
+| BitGo Coin | `tbaseeth` | `baseeth` |
 | Docs | [docs.base.org](https://docs.base.org/get-started/base) | [docs.base.org](https://docs.base.org) |
 
 ---
@@ -236,6 +250,3 @@ bitgo.authenticateWithAccessToken({ accessToken: 'YOUR_TOKEN' });
 ## 📜 License
 
 MIT — See [LICENSE](./LICENSE) for details.
-=======
-# PrivaRoll
->>>>>>> 26bceee243be354196bed183cf0a52611ae6f661

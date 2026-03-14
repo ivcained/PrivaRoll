@@ -41,10 +41,11 @@ export async function executeStealthPayrollBatch(
     console.log("🏦 Authenticating with BitGo Enterprise...");
     bitgo.authenticateWithAccessToken({ accessToken });
 
-    // 1. Get the specific USDC wallet on Base Testnet
-    // Note: 'tbase:usdc' represents Testnet Base USDC. Adjust if BitGo updates their coin ticker.
-    const usdcWallet = await bitgo
-      .coin("tbase:usdc")
+    // 1. Get the ETH wallet on Base Sepolia Testnet
+    // Note: BitGo test environment supports 'tbaseeth' for Base Sepolia ETH.
+    // In production, switch to 'baseeth' or the appropriate token coin (e.g., 'base:usdc').
+    const wallet = await bitgo
+      .coin("tbaseeth")
       .wallets()
       .get({ id: walletId });
 
@@ -61,7 +62,7 @@ export async function executeStealthPayrollBatch(
     // 3. Execute the batch transaction
     // This leverages BitGo's routing, policy checks, and gas management automatically
     console.log("🚀 Broadcasting stealth batch to Base network...");
-    const transaction = await usdcWallet.sendMany({
+    const transaction = await wallet.sendMany({
       recipients: recipients,
       walletPassphrase: walletPassphrase,
       // Optional: Add a hidden memo that stays off-chain in BitGo's DB
@@ -91,7 +92,7 @@ export async function executeStealthPayrollBatch(
  */
 export async function getIssuerWallet(accessToken: string, walletId: string) {
   bitgo.authenticateWithAccessToken({ accessToken });
-  return await bitgo.coin("tbase:usdc").wallets().get({ id: walletId });
+  return await bitgo.coin("tbaseeth").wallets().get({ id: walletId });
 }
 
 /**
