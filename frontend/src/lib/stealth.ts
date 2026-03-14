@@ -117,8 +117,8 @@ function hexToBytes(hex: string): Uint8Array {
 
 function bytesToBigInt(bytes: Uint8Array): bigint {
   let hex = "";
-  for (const b of bytes) {
-    hex += b.toString(16).padStart(2, "0");
+  for (let i = 0; i < bytes.length; i++) {
+    hex += bytes[i].toString(16).padStart(2, "0");
   }
   return BigInt("0x" + hex);
 }
