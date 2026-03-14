@@ -67,21 +67,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Use a legacy (type 0) transaction for precise gas cost control
-    // EIP-1559 transactions can have unpredictable fee overrides by ethers.js
-    const feeData = await provider.getFeeData();
-    const gasLimit = BigInt(21000); // Standard ETH transfer
+    // Populate a dummy transaction to get the exact gas parameters ethers.js will use
+    const dummyTx = await wallet.populateTransaction({
+      to: destinationAddress,
+      value: BigInt(0),
+      type: 0,
+    });
 
-    // Use gasPrice for legacy transaction, with a 50% buffer for safety
-    const baseGasPrice =
-      feeData.gasPrice ||
-      feeData.maxFeePerGas ||
-      ethers.parseUnits("1", "gwei");
-    const bufferedGasPrice = (baseGasPrice * BigInt(150)) / BigInt(100);
-    const gasCost = gasLimit * bufferedGasPrice;
+    const gasLimit = BigInt(dummyTx.gasLimit || 21000);
+    const gasPrice = BigInt(dummyTx.gasPrice || 1000000); // fallback to 0.001 gwei
+
+    // Calculate gas cost with the exact parameters ethers.js will use, plus a small buffer
+    const gasCost = gasLimit * gasPrice + BigInt(1000); // add 1000 wei safety margin
 
     console.log(
-      `⛽ Gas estimate: gasPrice=${ethers.formatUnits(baseGasPrice, "gwei")} gwei, buffered=${ethers.formatUnits(bufferedGasPrice, "gwei")} gwei, total cost=${ethers.formatEther(gasCost)} ETH`,
+      `⛽ Gas estimate: gasPrice=${ethers.formatUnits(gasPrice, "gwei")} gwei, gasLimit=${gasLimit}, total cost=${ethers.formatEther(gasCost)} ETH`,
     );
 
     if (balance <= gasCost) {
@@ -103,12 +103,12 @@ export async function POST(req: NextRequest) {
       `🚀 Sweeping ${ethers.formatEther(amountToSend)} ETH to ${destinationAddress}`,
     );
 
-    // Use type 0 (legacy) transaction for exact gas cost control
+    // Use type 0 (legacy) transaction with exact same gasPrice from populateTransaction
     const tx = await wallet.sendTransaction({
       to: destinationAddress,
       value: amountToSend,
       gasLimit,
-      gasPrice: bufferedGasPrice,
+      gasPrice,
       type: 0,
     });
 
