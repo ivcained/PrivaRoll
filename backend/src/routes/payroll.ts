@@ -12,7 +12,7 @@ export const payrollRouter = Router();
  * POST /api/payroll/run
  *
  * Execute a batch payroll run. Generates stealth addresses for each employee
- * and broadcasts the USDC transfers via BitGo on Base L2.
+ * and broadcasts the ETH transfers via BitGo on Base L2.
  *
  * Body:
  * {
@@ -20,7 +20,7 @@ export const payrollRouter = Router();
  *   employees: Array<{
  *     ensName?: string,
  *     metaPublicKey: string,
- *     amountUSDC: string  // in base units (wei for ETH on testnet, e.g., "5000000000000000" for 0.005 ETH)
+ *     amountETH: string  // in base units (wei, e.g., "5000000000000000" for 0.005 ETH)
  *   }>
  * }
  */
@@ -58,7 +58,7 @@ payrollRouter.post("/run", async (req: Request, res: Response) => {
 
       payrollBatch.push({
         stealthAddress,
-        amountInBaseUnits: emp.amountUSDC,
+        amountInBaseUnits: emp.amountETH,
       });
 
       ephemeralKeys.push({

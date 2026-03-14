@@ -2,11 +2,20 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { deriveStealthPrivateKey } from "@/lib/stealth";
 
 interface ScanMatch {
   stealthAddress: string;
   ephemeralPublicKey: string;
   derivedAddress: string;
+}
+
+interface SweepResult {
+  success: boolean;
+  txHash: string;
+  from: string;
+  to: string;
+  amount: string;
 }
 
 export default function EmployeePortal() {
@@ -17,11 +26,24 @@ export default function EmployeePortal() {
   const [scanComplete, setScanComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Derive & Sweep state
+  const [destinationAddress, setDestinationAddress] = useState("");
+  const [derivedKeys, setDerivedKeys] = useState<
+    Map<string, { privateKey: string; address: string }>
+  >(new Map());
+  const [isSweeping, setIsSweeping] = useState<string | null>(null);
+  const [sweepResults, setSweepResults] = useState<Map<string, SweepResult>>(
+    new Map(),
+  );
+  const [sweepError, setSweepError] = useState<string | null>(null);
+
   const scanForPayments = async () => {
     setIsScanning(true);
     setError(null);
     setMatches([]);
     setScanComplete(false);
+    setDerivedKeys(new Map());
+    setSweepResults(new Map());
 
     try {
       let ephemeralKeys;
@@ -46,10 +68,89 @@ export default function EmployeePortal() {
 
       setMatches(data.matches);
       setScanComplete(true);
+
+      // Auto-derive spending keys for all matches
+      if (data.matches.length > 0) {
+        const keys = new Map<string, { privateKey: string; address: string }>();
+        for (const match of data.matches) {
+          try {
+            const wallet = deriveStealthPrivateKey(
+              stealthPrivateKey,
+              match.ephemeralPublicKey,
+            );
+            keys.set(match.stealthAddress, {
+              privateKey: wallet.privateKey,
+              address: wallet.address,
+            });
+          } catch (err: any) {
+            console.error(
+              `Failed to derive key for ${match.stealthAddress}:`,
+              err,
+            );
+          }
+        }
+        setDerivedKeys(keys);
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
       setIsScanning(false);
+    }
+  };
+
+  const sweepETH = async (
+    stealthAddress: string,
+    ephemeralPublicKey: string,
+  ) => {
+    if (!destinationAddress) {
+      setSweepError("Please enter a destination address first");
+      return;
+    }
+
+    const derivedKey = derivedKeys.get(stealthAddress);
+    if (!derivedKey) {
+      setSweepError("Spending key not derived for this address");
+      return;
+    }
+
+    setIsSweeping(stealthAddress);
+    setSweepError(null);
+
+    try {
+      const res = await fetch(`/api/stealth/sweep`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          stealthPrivateKey: derivedKey.privateKey,
+          destinationAddress,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Sweep failed");
+      }
+
+      setSweepResults(
+        new Map(sweepResults.set(stealthAddress, data as SweepResult)),
+      );
+    } catch (err: any) {
+      setSweepError(err.message);
+    } finally {
+      setIsSweeping(null);
+    }
+  };
+
+  const sweepAll = async () => {
+    if (!destinationAddress) {
+      setSweepError("Please enter a destination address first");
+      return;
+    }
+
+    for (const match of matches) {
+      if (!sweepResults.has(match.stealthAddress)) {
+        await sweepETH(match.stealthAddress, match.ephemeralPublicKey);
+      }
     }
   };
 
@@ -70,7 +171,7 @@ export default function EmployeePortal() {
           </span>
         </h1>
         <p className="text-gray-400 mt-1">
-          Scan for stealth paychecks and derive spending keys
+          Scan for stealth paychecks, derive spending keys, and sweep ETH
         </p>
       </div>
 
@@ -83,9 +184,8 @@ export default function EmployeePortal() {
           <li>Enter your stealth private key (generated during Setup)</li>
           <li>Paste the ephemeral keys from the latest payroll run</li>
           <li>The scanner checks which stealth addresses belong to you</li>
-          <li>
-            Use the derived spending key to sweep USDC to your main wallet
-          </li>
+          <li>Spending keys are automatically derived for your payments</li>
+          <li>Enter your destination wallet and sweep ETH with one click</li>
         </ol>
       </div>
 
@@ -143,44 +243,148 @@ export default function EmployeePortal() {
       {scanComplete && (
         <div className="mt-6">
           {matches.length > 0 ? (
-            <div className="p-6 border border-green-500/50 rounded-xl bg-green-900/20">
-              <h3 className="text-lg font-semibold text-green-400 mb-3">
-                ✅ Found {matches.length} Payment
-                {matches.length > 1 ? "s" : ""}!
-              </h3>
-              <div className="space-y-3">
-                {matches.map((match, i) => (
-                  <div
-                    key={i}
-                    className="p-4 bg-gray-800 rounded-lg border border-gray-700"
-                  >
-                    <p className="text-sm text-gray-400 mb-1">
-                      Payment #{i + 1}
-                    </p>
-                    <p className="text-xs font-mono text-gray-300 mb-1">
-                      <span className="text-gray-500">Stealth Address: </span>
-                      <a
-                        href={`https://sepolia.basescan.org/address/${match.stealthAddress}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-privaroll-secondary hover:underline"
+            <div className="space-y-6">
+              {/* Payment Found Header */}
+              <div className="p-6 border border-green-500/50 rounded-xl bg-green-900/20">
+                <h3 className="text-lg font-semibold text-green-400 mb-3">
+                  ✅ Found {matches.length} Payment
+                  {matches.length > 1 ? "s" : ""}!
+                </h3>
+
+                {/* Payments List */}
+                <div className="space-y-3">
+                  {matches.map((match, i) => {
+                    const derived = derivedKeys.get(match.stealthAddress);
+                    const swept = sweepResults.get(match.stealthAddress);
+
+                    return (
+                      <div
+                        key={i}
+                        className="p-4 bg-gray-800 rounded-lg border border-gray-700"
                       >
-                        {match.stealthAddress}
-                      </a>
-                    </p>
-                    <p className="text-xs font-mono text-gray-300 truncate">
-                      <span className="text-gray-500">
-                        Ephemeral Public Key:{" "}
-                      </span>
-                      {match.ephemeralPublicKey}
-                    </p>
-                  </div>
-                ))}
+                        <p className="text-sm text-gray-400 mb-2">
+                          Payment #{i + 1}
+                        </p>
+                        <p className="text-xs font-mono text-gray-300 mb-1">
+                          <span className="text-gray-500">
+                            Stealth Address:{" "}
+                          </span>
+                          <a
+                            href={`https://sepolia.basescan.org/address/${match.stealthAddress}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-privaroll-secondary hover:underline"
+                          >
+                            {match.stealthAddress}
+                          </a>
+                        </p>
+                        <p className="text-xs font-mono text-gray-300 truncate mb-1">
+                          <span className="text-gray-500">
+                            Ephemeral Public Key:{" "}
+                          </span>
+                          {match.ephemeralPublicKey}
+                        </p>
+
+                        {/* Derived Key Status */}
+                        {derived && (
+                          <div className="mt-2 p-2 bg-gray-900 rounded border border-green-500/20">
+                            <p className="text-xs text-green-400">
+                              🔑 Spending key derived successfully
+                            </p>
+                            <p className="text-xs font-mono text-gray-400 mt-1">
+                              Derived Address: {derived.address}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Sweep Status */}
+                        {swept && (
+                          <div className="mt-2 p-2 bg-gray-900 rounded border border-blue-500/20">
+                            <p className="text-xs text-blue-400">
+                              ✅ Swept {swept.amount} ETH
+                            </p>
+                            <p className="text-xs font-mono text-gray-400 mt-1">
+                              TX:{" "}
+                              <a
+                                href={`https://sepolia.basescan.org/tx/${swept.txHash}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-privaroll-secondary hover:underline"
+                              >
+                                {swept.txHash}
+                              </a>
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Individual Sweep Button */}
+                        {derived && !swept && destinationAddress && (
+                          <button
+                            onClick={() =>
+                              sweepETH(
+                                match.stealthAddress,
+                                match.ephemeralPublicKey,
+                              )
+                            }
+                            disabled={isSweeping === match.stealthAddress}
+                            className="mt-2 px-4 py-1.5 bg-blue-600/20 border border-blue-500/50 rounded-lg text-blue-400 hover:bg-blue-600/30 transition-colors text-xs disabled:opacity-50"
+                          >
+                            {isSweeping === match.stealthAddress
+                              ? "⏳ Sweeping..."
+                              : "💸 Sweep ETH"}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-              <p className="text-sm text-gray-400 mt-4">
-                💡 Use your stealth private key + the ephemeral public key to
-                derive the spending key and sweep the USDC.
-              </p>
+
+              {/* Sweep Section */}
+              <div className="p-6 border border-blue-500/50 rounded-xl bg-blue-900/10">
+                <h3 className="text-lg font-semibold text-blue-400 mb-3">
+                  💸 Sweep ETH to Your Wallet
+                </h3>
+                <p className="text-sm text-gray-400 mb-4">
+                  Enter your destination wallet address and sweep all ETH from
+                  your stealth addresses in one go.
+                </p>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Destination Wallet Address
+                  </label>
+                  <input
+                    type="text"
+                    value={destinationAddress}
+                    onChange={(e) => setDestinationAddress(e.target.value)}
+                    placeholder="0x... your main wallet address"
+                    className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono text-sm"
+                  />
+                </div>
+
+                <button
+                  onClick={sweepAll}
+                  disabled={
+                    !destinationAddress ||
+                    isSweeping !== null ||
+                    matches.every((m) => sweepResults.has(m.stealthAddress))
+                  }
+                  className="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSweeping
+                    ? "⏳ Sweeping..."
+                    : matches.every((m) => sweepResults.has(m.stealthAddress))
+                      ? "✅ All Payments Swept!"
+                      : `💸 Sweep All (${matches.length - sweepResults.size} remaining)`}
+                </button>
+
+                {sweepError && (
+                  <div className="mt-3 p-3 border border-red-500/50 rounded-lg bg-red-900/20">
+                    <p className="text-red-400 text-sm">❌ {sweepError}</p>
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <div className="p-6 border border-yellow-500/50 rounded-xl bg-yellow-900/20">

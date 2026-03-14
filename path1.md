@@ -1,5 +1,5 @@
 Part 1: BitGo SDK Integration for IssuerMultisig & GovMultisig on Base
-Instead of using BitGo to call complex FHE smart contracts, you will now use BitGo's SDK to execute Batch Transactions on the Base network. The HR multi-sig will send USDC to dozens of unlinked, one-time stealth addresses in a single, gas-efficient transaction.
+Instead of using BitGo to call complex FHE smart contracts, you will now use BitGo's SDK to execute Batch Transactions on the Base network. The HR multi-sig will send ETH to dozens of unlinked, one-time stealth addresses in a single, gas-efficient transaction.
 
 Step 1: Initialize the BitGo SDK for Base Testnet
 You will set up the SDK to point to Base Sepolia (BitGo usually refers to testnets with a t prefix, like tbase or teth depending on their current Base integration name).
@@ -12,19 +12,18 @@ const { BitGo } = require('bitgo');
 const bitgo = new BitGo({ env: 'test' }); 
 bitgo.authenticateWithAccessToken({ accessToken: process.env.BITGO_TEST_TOKEN });
 Step 2: The Enterprise "Batch Disburse" Script
-When HR hits "Run Payroll", your Next.js backend uses BitGo to construct a batch transaction. It sends standard USDC on Base, but only to the newly generated stealth addresses.
+When HR hits "Run Payroll", your Next.js backend uses BitGo to construct a batch transaction. It sends standard ETH on Base, but only to the newly generated stealth addresses.
 
 JavaScript
 // Example: HR triggering payroll via BitGo SDK on Base L2
-async function executeStealthPayroll(walletId, stealthPayments, usdcContractAddress) {
-  // Assume 'stealthPayments' is an array of objects: { stealthAddress: '0x...', amount: '5000000000' }
-  const wallet = await bitgo.coin('tbase').wallets().get({ id: walletId }); 
+async function executeStealthPayroll(walletId, stealthPayments) {
+  // Assume 'stealthPayments' is an array of objects: { stealthAddress: '0x...', amount: '5000000000000000' }
+  const wallet = await bitgo.coin('tbaseeth').wallets().get({ id: walletId });
   
   // Map the stealth payments to BitGo's recipient format
   const recipients = stealthPayments.map(payment => ({
-    address: usdcContractAddress, // The USDC contract on Base
-    amount: '0', 
-    data: encodeERC20Transfer(payment.stealthAddress, payment.amount) // helper function to encode the transfer
+    address: payment.stealthAddress,
+    amount: payment.amount, // Amount in wei
   }));
 
   // Build and sign the batch transaction via BitGo
@@ -41,13 +40,13 @@ With Base EVM, your pitch shifts from "encrypted math" to "unlinkable identity."
 1. Privacy & BitGo Tracks (Stealth Address Payment System)
 The Pitch: "We built the exact stealth-address payment system BitGo asked for, and deployed it on Base where fees are low enough to make enterprise stealth payroll economically viable."
 
-The Demo Focus: Open BaseScan on the big screen. Show the judges the IssuerMultisig sending USDC. Trace the funds to the recipient addresses. Then, challenge the judges: "Look at these addresses. You have no idea who owns them. They have zero transaction history. They are one-time stealth addresses."
+The Demo Focus: Open BaseScan on the big screen. Show the judges the IssuerMultisig sending ETH. Trace the funds to the recipient addresses. Then, challenge the judges: "Look at these addresses. You have no idea who owns them. They have zero transaction history. They are one-time stealth addresses."
 
 2. BEST Project (Creativity & Demo)
 The Pitch: "We brought true privacy to the fastest growing L2."
 
 Demo Focus (The 3-Pane Split): 1.  HR Dashboard: HR clicks "Pay Alice and Bob" (using their .eth names).
-2.  BaseScan: Shows USDC transferring to random 0x9A4... and 0x3B1... addresses.
+2.  BaseScan: Shows ETH transferring to random 0x9A4... and 0x3B1... addresses.
 3.  Employee Client: The employee's browser uses their private viewing key to scan the Base network, magically detects that 0x9A4... belongs to them, and shows their $5,000 balance ready to be swept to their main wallet.
 
 3. DeFi 2.0 - New Primitives

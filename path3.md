@@ -1,4 +1,4 @@
-This is where the magic happens for the employee. They are looking at a public blockchain, but only their wallet holds the mathematical cryptographic key to unlock the funds.To do this, the employee's browser will take the ephemeral public key (that HR published during the payroll run) and multiply it by their own private meta-key. Because of the beautiful symmetry of Elliptic Curve Cryptography, this produces the exact same shared secret that HR generated, allowing the employee to derive the final spending key.Here is the math powering it:$$p_{stealth} = p_{meta} + \text{hash}(S) \pmod{n}$$(Where $n$ is the secp256k1 curve order).The TypeScript Implementation (Employee Side)Add this to your existing frontend/src/lib/stealth.ts file. This function takes the published ephemeral key and the employee's secret meta-key, and spits out a fully functional ethers.Wallet ready to sweep the USDC on Base.TypeScript/**
+This is where the magic happens for the employee. They are looking at a public blockchain, but only their wallet holds the mathematical cryptographic key to unlock the funds.To do this, the employee's browser will take the ephemeral public key (that HR published during the payroll run) and multiply it by their own private meta-key. Because of the beautiful symmetry of Elliptic Curve Cryptography, this produces the exact same shared secret that HR generated, allowing the employee to derive the final spending key.Here is the math powering it:$$p_{stealth} = p_{meta} + \text{hash}(S) \pmod{n}$$(Where $n$ is the secp256k1 curve order).The TypeScript Implementation (Employee Side)Add this to your existing frontend/src/lib/stealth.ts file. This function takes the published ephemeral key and the employee's secret meta-key, and spits out a fully functional ethers.Wallet ready to sweep the ETH on Base.TypeScript/**
  * 3. FOR THE EMPLOYEE: Scan and Derive the Spending Key
  * The employee's browser runs this to find their money and unlock it.
  */
@@ -26,19 +26,19 @@ export function deriveStealthPrivateKey(
   const stealthPrivateKeyStr = "0x" + secp.utils.bytesToHex(stealthPrivBytes);
 
   // 5. Create an ethers wallet instance from the derived key
-  // We can now use this to interact with the Base network and move the USDC!
+  // We can now use this to interact with the Base network and move the ETH!
   const stealthWallet = new ethers.Wallet(stealthPrivateKeyStr);
 
   return stealthWallet;
 }
-How to wire this into your Next.js UI (The "Claim" Button)When the employee logs into the PrivaRoll dashboard, they will click a button that says "Scan for Paychecks." Your app will fetch the list of ephemeral keys published by HR for that month, try to derive the stealth address for each one, and check if it has a USDC balance on Base.Here is what that looks like in your React component:TypeScriptimport { useState } from 'react';
+How to wire this into your Next.js UI (The "Claim" Button)When the employee logs into the PrivaRoll dashboard, they will click a button that says "Scan for Paychecks." Your app will fetch the list of ephemeral keys published by HR for that month, try to derive the stealth address for each one, and check if it has an ETH balance on Base.Here is what that looks like in your React component:TypeScriptimport { useState } from 'react';
 import { ethers } from 'ethers';
 import { deriveStealthPrivateKey } from '../lib/stealth';
 
 // Use Base RPC (Testnet: Base Sepolia)
 const provider = new ethers.JsonRpcProvider("https://sepolia.base.org");
-const USDC_ADDRESS = "0xYourBaseTestnetUSDCAddress"; 
-const USDC_ABI = ["function balanceOf(address) view returns (uint256)", "function transfer(address, uint256) returns (bool)"];
+// For ETH, we simply check the native balance using provider.getBalance()
+// No contract address needed for native ETH transfers
 
 export function EmployeeDashboard({ stealthPrivateKey, publishedEphemeralKeys }) {
   const [foundFunds, setFoundFunds] = useState<string | null>(null);
@@ -52,16 +52,15 @@ export function EmployeeDashboard({ stealthPrivateKey, publishedEphemeralKeys })
         const stealthWallet = deriveStealthPrivateKey(stealthPrivateKey, ephemeralKey);
         const stealthWalletConnected = stealthWallet.connect(provider);
 
-        // 2. Check if this unlinked address has USDC on Base
-        const usdcContract = new ethers.Contract(USDC_ADDRESS, USDC_ABI, stealthWalletConnected);
-        const balance = await usdcContract.balanceOf(stealthWallet.address);
+        // 2. Check if this unlinked address has ETH on Base
+        const balance = await provider.getBalance(stealthWallet.address);
 
         if (balance > 0n) {
-          console.log(`🎉 Found ${ethers.formatUnits(balance, 6)} USDC at ${stealthWallet.address}`);
+          console.log(`🎉 Found ${ethers.formatEther(balance)} ETH at ${stealthWallet.address}`);
           setFoundFunds(stealthWallet.address);
           
-          // Next step: Provide a button for the user to call usdcContract.transfer() 
-          // to sweep the funds to their main public wallet or an exchange!
+          // Next step: Provide a button for the user to sweep the ETH
+          // to their main public wallet or an exchange!
           return;
         }
       } catch (err) {

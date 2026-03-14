@@ -8,7 +8,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 interface Employee {
   ensName: string;
   metaPublicKey: string;
-  amountUSDC: string;
+  amountETH: string;
 }
 
 interface PayrollResult {
@@ -25,7 +25,7 @@ interface PayrollResult {
 
 export default function HRDashboard() {
   const [employees, setEmployees] = useState<Employee[]>([
-    { ensName: "", metaPublicKey: "", amountUSDC: "" },
+    { ensName: "", metaPublicKey: "", amountETH: "" },
   ]);
   const [walletPassphrase, setWalletPassphrase] = useState("");
   const [isRunning, setIsRunning] = useState(false);
@@ -35,7 +35,7 @@ export default function HRDashboard() {
   const addEmployee = () => {
     setEmployees([
       ...employees,
-      { ensName: "", metaPublicKey: "", amountUSDC: "" },
+      { ensName: "", metaPublicKey: "", amountETH: "" },
     ]);
   };
 
@@ -163,11 +163,11 @@ export default function HRDashboard() {
                 />
                 <input
                   type="text"
-                  value={emp.amountUSDC}
+                  value={emp.amountETH}
                   onChange={(e) =>
-                    updateEmployee(i, "amountUSDC", e.target.value)
+                    updateEmployee(i, "amountETH", e.target.value)
                   }
-                  placeholder="USDC amount (base units)"
+                  placeholder="ETH amount (in wei)"
                   className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-privaroll-primary text-sm"
                 />
               </div>

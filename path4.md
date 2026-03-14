@@ -1,11 +1,11 @@
-This is the final piece of the execution pipeline. You have the cryptography to hide the addresses, and now you need the enterprise infrastructure to actually move the money.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      This is the final piece of the execution pipeline. You have the cryptography to hide the addresses, and now you need the enterprise infrastructure to actually move the money.
 
-To win the BitGo DeFi Composability & Privacy track, you need to show that you are using their SDK programmatically. By using BitGo’s sendMany function, you can execute a batch payroll run—sending USDC to dozens of unlinked stealth addresses—in a single, gas-efficient transaction on Base L2.
+To win the BitGo DeFi Composability & Privacy track, you need to show that you are using their SDK programmatically. By using BitGo's sendMany function, you can execute a batch payroll run—sending ETH to dozens of unlinked stealth addresses—in a single, gas-efficient transaction on Base L2.
 
 Here is the Node.js backend script that your HR dashboard will trigger when they click "Run Payroll."
 
 The BitGo Execution Script (HR Backend)
-For this, you will be using the BitGo JS SDK. Assuming you are using Base Sepolia for the hackathon, BitGo typically references this environment using testnet coin identifiers (e.g., tbase for Base Testnet, and tbase:usdc for the USDC token on that network).
+For this, you will be using the BitGo JS SDK. Assuming you are using Base Sepolia for the hackathon, BitGo typically references this environment using testnet coin identifiers (e.g., tbaseeth for Base Sepolia ETH).
 
 Create a new file in your backend/API routes: backend/src/services/bitgoPayroll.ts
 
@@ -32,22 +32,22 @@ export async function executeStealthPayrollBatch(
     console.log("🏦 Authenticating with BitGo Enterprise...");
     bitgo.authenticateWithAccessToken({ accessToken });
 
-    // 1. Get the specific USDC wallet on Base Testnet
-    // Note: 'tbase:usdc' represents Testnet Base USDC. Adjust if BitGo updates their coin ticker.
-    const usdcWallet = await bitgo.coin('tbase:usdc').wallets().get({ id: walletId });
+    // 1. Get the ETH wallet on Base Testnet
+    // Note: 'tbaseeth' represents Testnet Base ETH. Adjust if BitGo updates their coin ticker.
+    const ethWallet = await bitgo.coin('tbaseeth').wallets().get({ id: walletId });
 
     console.log(`✅ Wallet loaded. Preparing batch transfer for ${payrollBatch.length} employees.`);
 
     // 2. Format the recipients for BitGo's sendMany function
     const recipients = payrollBatch.map((payment) => ({
       address: payment.stealthAddress,
-      amount: payment.amountInBaseUnits, // Must be stringified integer (e.g., "5000000" for 5 USDC if 6 decimals)
+      amount: payment.amountInBaseUnits, // Must be stringified integer in wei (e.g., "5000000000000000" for 0.005 ETH)
     }));
 
     // 3. Execute the batch transaction
     // This leverages BitGo's routing, policy checks, and gas management automatically
     console.log("🚀 Broadcasting stealth batch to Base network...");
-    const transaction = await usdcWallet.sendMany({
+    const transaction = await ethWallet.sendMany({
       recipients: recipients,
       walletPassphrase: walletPassphrase,
       // Optional: Add a hidden memo or enterprise tracking ID that stays off-chain in BitGo's DB
@@ -87,7 +87,7 @@ export async function POST(req: Request) {
     
     finalBatch.push({
       stealthAddress: stealthAddress,
-      amountInBaseUnits: payment.amountUSDC,
+      amountInBaseUnits: payment.amountETH,
     });
     
     publishedEphemeralKeys.push(ephemeralPublicKey);

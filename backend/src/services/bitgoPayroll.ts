@@ -4,7 +4,7 @@ import { BitGo } from "bitgo";
  * BitGo Payroll Service
  *
  * Executes batch payroll transactions via BitGo SDK to stealth addresses on Base L2.
- * Uses BitGo's sendMany function for gas-efficient batch USDC transfers.
+ * Uses BitGo's sendMany function for gas-efficient batch ETH transfers.
  *
  * @see https://developers.bitgo.com/docs/get-started-quick-start
  */
@@ -14,7 +14,7 @@ const bitgo = new BitGo({ env: "test" });
 
 export interface PayrollPayment {
   stealthAddress: string;
-  amountInBaseUnits: string; // Stringified integer (e.g., "5000000" for 5 USDC with 6 decimals)
+  amountInBaseUnits: string; // Stringified integer in wei (e.g., "5000000000000000" for 0.005 ETH)
 }
 
 export interface PayrollResult {
@@ -43,7 +43,7 @@ export async function executeStealthPayrollBatch(
 
     // 1. Get the ETH wallet on Base Sepolia Testnet
     // Note: BitGo test environment supports 'tbaseeth' for Base Sepolia ETH.
-    // In production, switch to 'baseeth' or the appropriate token coin (e.g., 'base:usdc').
+    // In production, switch to 'baseeth' or the appropriate token coin.
     const wallet = await bitgo
       .coin("tbaseeth")
       .wallets()

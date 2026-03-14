@@ -190,7 +190,7 @@ Follow the [BitGo Quick Start](https://developers.bitgo.com/docs/get-started-qui
 1. **Create a Test Account:** Go to [app.bitgo-test.com/signup](https://app.bitgo-test.com/signup)
 2. **Create an Access Token:** In account settings, generate a long-lived token
 3. **Create a Wallet:** Using the SDK or dashboard, create a **`tbaseeth`** wallet (Base Sepolia ETH)
-   > ⚠️ **Note:** BitGo's test environment currently supports `tbaseeth` (Base Sepolia ETH) as the available coin type. USDC on Base testnet is not available in the SDK. For production, use `baseeth` or the appropriate token coin.
+   > ⚠️ **Note:** BitGo's test environment currently supports `tbaseeth` (Base Sepolia ETH) as the available coin type. For production, use `baseeth` or the appropriate token coin.
 4. **Fund the Wallet:** Transfer Base Sepolia testnet ETH to your BitGo wallet (use the [Base Sepolia Faucet](https://www.coinbase.com/faucets/base-ethereum-goerli-faucet))
 5. **Set the Token:** Add `BITGO_ACCESS_TOKEN` and `BITGO_HR_WALLET_ID` to your `.env` file
 

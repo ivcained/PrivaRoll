@@ -42,7 +42,7 @@ export default function HomePage() {
               HR Dashboard
             </h2>
             <p className="text-sm text-gray-500">
-              Run payroll, manage employees, batch USDC transfers to stealth
+              Run payroll, manage employees, batch ETH transfers to stealth
               addresses
             </p>
           </Link>
@@ -56,8 +56,7 @@ export default function HomePage() {
               Employee Portal
             </h2>
             <p className="text-sm text-gray-500">
-              Scan for paychecks, derive spending keys, sweep USDC to your
-              wallet
+              Scan for paychecks, derive spending keys, sweep ETH to your wallet
             </p>
           </Link>
 

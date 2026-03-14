@@ -64,7 +64,7 @@ async function handleDirectSigning(
   employees: Array<{
     ensName?: string;
     metaPublicKey: string;
-    amountUSDC: string;
+    amountETH: string;
   }>,
 ) {
   const privateKey =
@@ -110,7 +110,7 @@ async function handleDirectSigning(
       });
       payments.push({
         address: result.stealthAddress,
-        amount: emp.amountUSDC,
+        amount: emp.amountETH,
       });
     } catch (err: any) {
       return NextResponse.json(
@@ -180,7 +180,7 @@ async function handleBitGoExpress(
   employees: Array<{
     ensName?: string;
     metaPublicKey: string;
-    amountUSDC: string;
+    amountETH: string;
   }>,
 ) {
   const accessToken = process.env.BITGO_ACCESS_TOKEN;
@@ -215,7 +215,7 @@ async function handleBitGoExpress(
     });
     recipients.push({
       address: result.stealthAddress,
-      amount: emp.amountUSDC,
+      amount: emp.amountETH,
     });
   }
 
