@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -11,9 +11,19 @@ interface Employee {
   amountETH: string;
 }
 
+interface PayrollConfig {
+  mode: "bitgo" | "direct" | "none";
+  configured: boolean;
+  bitgoEnabled: boolean;
+  directEnabled: boolean;
+  coin: string;
+}
+
 interface PayrollResult {
   success: boolean;
+  mode: string;
   txHash: string;
+  allTxHashes?: string[];
   ephemeralKeys: Array<{
     ensName?: string;
     ephemeralPublicKey: string;
@@ -31,6 +41,33 @@ export default function HRDashboard() {
   const [isRunning, setIsRunning] = useState(false);
   const [result, setResult] = useState<PayrollResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [config, setConfig] = useState<PayrollConfig | null>(null);
+  const [configLoading, setConfigLoading] = useState(true);
+
+  // Fetch payroll config on mount to determine mode
+  useEffect(() => {
+    async function fetchConfig() {
+      try {
+        const res = await fetch(`${API_URL}/api/payroll/config`);
+        if (res.ok) {
+          const data = await res.json();
+          setConfig(data);
+        }
+      } catch {
+        // Config endpoint not available; default to unknown
+        setConfig({
+          mode: "none",
+          configured: false,
+          bitgoEnabled: false,
+          directEnabled: false,
+          coin: "tbaseeth",
+        });
+      } finally {
+        setConfigLoading(false);
+      }
+    }
+    fetchConfig();
+  }, []);
 
   const addEmployee = () => {
     setEmployees([
@@ -62,7 +99,11 @@ export default function HRDashboard() {
       const res = await fetch(`${API_URL}/api/payroll/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletPassphrase, employees }),
+        body: JSON.stringify({
+          walletPassphrase:
+            config?.mode === "bitgo" ? walletPassphrase : undefined,
+          employees,
+        }),
       });
 
       const data = await res.json();
@@ -77,6 +118,16 @@ export default function HRDashboard() {
       setIsRunning(false);
     }
   };
+
+  const isBitGoMode = config?.mode === "bitgo";
+  const isDirectMode = config?.mode === "direct";
+  const isConfigured = config?.configured ?? false;
+
+  const canRun =
+    !isRunning &&
+    employees.length > 0 &&
+    employees.some((e) => e.metaPublicKey.trim()) &&
+    (isBitGoMode ? walletPassphrase.trim().length > 0 : true);
 
   return (
     <main className="min-h-screen p-8 max-w-5xl mx-auto">
@@ -101,19 +152,77 @@ export default function HRDashboard() {
         </div>
       </div>
 
-      {/* Wallet Passphrase */}
-      <div className="mb-6 p-4 border border-gray-800 rounded-xl bg-gray-900/50">
-        <label className="block text-sm font-medium text-gray-400 mb-2">
-          Wallet Passphrase
-        </label>
-        <input
-          type="password"
-          value={walletPassphrase}
-          onChange={(e) => setWalletPassphrase(e.target.value)}
-          placeholder="Enter wallet passphrase..."
-          className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-privaroll-primary"
-        />
-      </div>
+      {/* Payroll Mode Indicator */}
+      {!configLoading && (
+        <div className="mb-6 p-4 border border-gray-800 rounded-xl bg-gray-900/30">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-500">Payroll Engine:</span>
+              {isBitGoMode && (
+                <span className="px-3 py-1 bg-blue-600/20 border border-blue-500/30 rounded-full text-sm text-blue-400 flex items-center gap-1.5">
+                  <span className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
+                  BitGo Enterprise
+                </span>
+              )}
+              {isDirectMode && (
+                <span className="px-3 py-1 bg-yellow-600/20 border border-yellow-500/30 rounded-full text-sm text-yellow-400 flex items-center gap-1.5">
+                  <span className="w-2 h-2 bg-yellow-400 rounded-full" />
+                  Direct Signing (ethers.js)
+                </span>
+              )}
+              {!isConfigured && (
+                <span className="px-3 py-1 bg-red-600/20 border border-red-500/30 rounded-full text-sm text-red-400 flex items-center gap-1.5">
+                  <span className="w-2 h-2 bg-red-400 rounded-full" />
+                  Not Configured
+                </span>
+              )}
+            </div>
+            {isBitGoMode && config?.coin && (
+              <span className="text-xs text-gray-500 font-mono">
+                {config.coin}
+              </span>
+            )}
+          </div>
+          {isBitGoMode && (
+            <p className="text-xs text-gray-600 mt-2">
+              💡 Using BitGo multi-sig wallet for batch transactions. Requires
+              wallet passphrase to sign.
+            </p>
+          )}
+          {isDirectMode && (
+            <p className="text-xs text-gray-600 mt-2">
+              ⚠️ Using server-side private key for direct signing. Configure
+              BITGO_ACCESS_TOKEN for enterprise mode.
+            </p>
+          )}
+          {!isConfigured && (
+            <p className="text-xs text-red-400 mt-2">
+              ❌ No payroll method configured. Set BITGO_ACCESS_TOKEN +
+              BITGO_WALLET_ID or PAYROLL_PRIVATE_KEY in .env
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* BitGo Wallet Passphrase (only shown in BitGo mode) */}
+      {isBitGoMode && (
+        <div className="mb-6 p-4 border border-blue-500/20 rounded-xl bg-blue-900/10">
+          <label className="block text-sm font-medium text-blue-400 mb-2">
+            🔐 BitGo Wallet Passphrase
+          </label>
+          <input
+            type="password"
+            value={walletPassphrase}
+            onChange={(e) => setWalletPassphrase(e.target.value)}
+            placeholder="Enter your BitGo wallet passphrase to authorize the batch..."
+            className="w-full px-4 py-2 bg-gray-800 border border-blue-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+          />
+          <p className="text-xs text-gray-600 mt-1">
+            This passphrase unlocks your BitGo multi-sig wallet for signing the
+            batch transaction.
+          </p>
+        </div>
+      )}
 
       {/* Employee List */}
       <div className="mb-6">
@@ -179,10 +288,14 @@ export default function HRDashboard() {
       {/* Run Payroll Button */}
       <button
         onClick={runPayroll}
-        disabled={isRunning || !walletPassphrase || employees.length === 0}
+        disabled={!canRun}
         className="w-full py-3 bg-gradient-to-r from-privaroll-primary to-privaroll-secondary text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {isRunning ? "⏳ Processing Payroll..." : "🚀 Run Stealth Payroll"}
+        {isRunning
+          ? "⏳ Processing Payroll..."
+          : isBitGoMode
+            ? "🏦 Run BitGo Stealth Payroll"
+            : "🚀 Run Stealth Payroll"}
       </button>
 
       {/* Error */}
@@ -199,6 +312,21 @@ export default function HRDashboard() {
             ✅ Payroll Executed Successfully
           </h3>
           <div className="space-y-2 text-sm">
+            {/* Mode Badge */}
+            <p className="text-gray-300 flex items-center gap-2">
+              <span className="text-gray-500">Mode:</span>
+              {result.mode === "bitgo" ? (
+                <span className="px-2 py-0.5 bg-blue-600/20 border border-blue-500/30 rounded text-xs text-blue-400">
+                  BitGo Enterprise
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 bg-yellow-600/20 border border-yellow-500/30 rounded text-xs text-yellow-400">
+                  Direct Signing
+                </span>
+              )}
+            </p>
+
+            {/* TX Hash */}
             <p className="text-gray-300">
               <span className="text-gray-500">TX Hash:</span>{" "}
               <a
@@ -210,6 +338,28 @@ export default function HRDashboard() {
                 {result.txHash}
               </a>
             </p>
+
+            {/* Additional TX Hashes (direct mode) */}
+            {result.allTxHashes && result.allTxHashes.length > 1 && (
+              <div className="text-gray-300">
+                <span className="text-gray-500">All TX Hashes:</span>
+                <div className="mt-1 space-y-1">
+                  {result.allTxHashes.map((hash, i) => (
+                    <p key={i} className="font-mono text-xs">
+                      <a
+                        href={`https://sepolia.basescan.org/tx/${hash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-privaroll-secondary hover:underline"
+                      >
+                        {hash}
+                      </a>
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <p className="text-gray-300">
               <span className="text-gray-500">Recipients:</span>{" "}
               {result.recipientCount}
@@ -231,6 +381,12 @@ export default function HRDashboard() {
                   key={i}
                   className="p-3 bg-gray-800 rounded-lg text-xs font-mono"
                 >
+                  {key.ensName && (
+                    <p className="text-gray-400 mb-1">
+                      Employee:{" "}
+                      <span className="text-white">{key.ensName}</span>
+                    </p>
+                  )}
                   <p className="text-gray-400">
                     Stealth:{" "}
                     <span className="text-white">{key.stealthAddress}</span>
@@ -242,6 +398,18 @@ export default function HRDashboard() {
                 </div>
               ))}
             </div>
+
+            {/* Copy JSON button */}
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(
+                  JSON.stringify(result.ephemeralKeys, null, 2),
+                );
+              }}
+              className="mt-3 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-400 hover:text-white hover:border-gray-500 transition-colors text-xs"
+            >
+              📋 Copy Ephemeral Keys as JSON
+            </button>
           </div>
         </div>
       )}

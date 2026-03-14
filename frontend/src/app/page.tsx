@@ -19,12 +19,15 @@ export default function HomePage() {
         </p>
 
         {/* Network Badge */}
-        <div className="flex items-center justify-center gap-3 mb-12">
+        <div className="flex items-center justify-center gap-3 mb-12 flex-wrap">
           <span className="px-3 py-1 bg-blue-600/20 border border-blue-500/30 rounded-full text-sm text-blue-400">
             Deployed on Base EVM
           </span>
           <span className="px-3 py-1 bg-purple-600/20 border border-purple-500/30 rounded-full text-sm text-purple-400">
             ENS Integrated
+          </span>
+          <span className="px-3 py-1 bg-green-600/20 border border-green-500/30 rounded-full text-sm text-green-400">
+            BitGo Enterprise
           </span>
         </div>
 
@@ -39,7 +42,7 @@ export default function HomePage() {
               HR Dashboard
             </h2>
             <p className="text-sm text-gray-500">
-              Run payroll, manage employees, batch ETH transfers to stealth
+              Run payroll via BitGo multi-sig, batch ETH transfers to stealth
               addresses
             </p>
           </Link>
@@ -78,18 +81,33 @@ export default function HomePage() {
         <h3 className="text-lg font-semibold text-gray-400 mb-4">
           How It Works
         </h3>
-        <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+        <div className="flex items-center justify-center gap-2 text-sm text-gray-600 flex-wrap">
           <span className="px-3 py-1 bg-gray-800 rounded">ENS Meta-Key</span>
           <span>→</span>
           <span className="px-3 py-1 bg-gray-800 rounded">
             Stealth Derivation
           </span>
           <span>→</span>
-          <span className="px-3 py-1 bg-gray-800 rounded">Batch Transfer</span>
+          <span className="px-3 py-1 bg-blue-900/30 border border-blue-500/20 rounded text-blue-400">
+            BitGo Batch TX
+          </span>
           <span>→</span>
           <span className="px-3 py-1 bg-gray-800 rounded">
             Private Retrieval
           </span>
+        </div>
+      </div>
+
+      {/* BitGo Integration Note */}
+      <div className="mt-8 max-w-xl mx-auto text-center">
+        <div className="p-4 border border-gray-800 rounded-xl bg-gray-900/30">
+          <p className="text-xs text-gray-500">
+            🏦 <strong className="text-gray-400">BitGo Enterprise Integration:</strong>{" "}
+            HR multi-sig sends ETH to stealth addresses via BitGo&apos;s{" "}
+            <code className="text-blue-400">sendMany</code> API. All transfers
+            are batched, policy-enforced, and auditable — but recipients remain
+            unlinkable on Base L2.
+          </p>
         </div>
       </div>
 

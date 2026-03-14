@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import { payrollRouter } from "./routes/payroll";
 import { stealthRouter } from "./routes/stealth";
 import { healthRouter } from "./routes/health";
+import { validateBitGoConfig } from "./services/bitgoPayroll";
 
 // Load environment variables from root .env
 dotenv.config({ path: "../.env" });
@@ -13,7 +14,7 @@ dotenv.config({ path: "../.env" });
 const app = express();
 const PORT = process.env.BACKEND_PORT || 4000;
 
-// ──���───────���───────────────────────────────────
+// ──────────────────────────────────────────────
 // Middleware
 // ──────────────────────────────────────────────
 app.use(helmet());
@@ -45,7 +46,7 @@ app.use(morgan("dev"));
 
 // ──────────────────────────────────────────────
 // Routes
-// ────────────────────────────���─────────────────
+// ──────────────────────────────────────────────
 app.use("/api/health", healthRouter);
 app.use("/api/payroll", payrollRouter);
 app.use("/api/stealth", stealthRouter);
@@ -72,6 +73,8 @@ app.use(
 // Start Server
 // ──────────────────────────────────────────────
 app.listen(PORT, () => {
+  const bitgoConfig = validateBitGoConfig();
+
   console.log("═══════════════════════════════════════════════════");
   console.log("  🛡️  PrivaRoll Backend Server");
   console.log("═══════════════════════════════════════════════════");
@@ -80,6 +83,20 @@ app.listen(PORT, () => {
   console.log(
     `  🔗 Base Sepolia RPC: ${process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org"}`,
   );
+  console.log("───────────────────────────────────────────────────");
+  console.log(`  🏦 Payroll Mode: ${bitgoConfig.mode.toUpperCase()}`);
+  if (bitgoConfig.mode === "bitgo") {
+    console.log(`  ✅ BitGo Enterprise: Connected`);
+    console.log(`  🪙 Coin: ${process.env.BITGO_COIN || "tbaseeth"}`);
+    console.log(`  🔑 Wallet ID: ${process.env.BITGO_WALLET_ID?.slice(0, 8)}...`);
+  } else if (bitgoConfig.mode === "direct") {
+    console.log(`  ⚠️  BitGo: Not configured (using direct signing fallback)`);
+    console.log(`     Missing: ${bitgoConfig.missing.join(", ")}`);
+  } else {
+    console.log(`  ❌ No payroll signing method configured!`);
+    console.log(`     Set BITGO_ACCESS_TOKEN + BITGO_WALLET_ID for BitGo mode`);
+    console.log(`     Or set PAYROLL_PRIVATE_KEY for direct signing mode`);
+  }
   console.log("═══════════════════════════════════════════════════");
 });
 

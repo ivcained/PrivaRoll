@@ -5,17 +5,23 @@ import { ethers } from "ethers";
 /**
  * POST /api/payroll/run
  *
- * Executes a stealth payroll run on Base Sepolia:
- * 1. Generates stealth addresses for each employee using their meta public keys
- * 2. Sends ETH/native transfers directly to stealth addresses using ethers.js
+ * Executes a stealth payroll run on Base Sepolia.
+ * Supports two modes:
  *
- * Required env vars:
- *   PAYROLL_PRIVATE_KEY  - Private key of the HR payroll wallet (for signing)
- *   BASE_SEPOLIA_RPC_URL - Base Sepolia RPC endpoint (default: https://sepolia.base.org)
+ * 1. BitGo Mode (preferred): Proxies to the backend Express server which
+ *    uses BitGo's sendMany API for enterprise batch transactions.
+ *
+ * 2. Direct Mode (fallback): Uses ethers.js to send transactions directly
+ *    from a server-side private key.
+ *
+ * The mode is auto-detected based on environment variables:
+ *   - BITGO_ACCESS_TOKEN + BITGO_WALLET_ID → BitGo mode
+ *   - PAYROLL_PRIVATE_KEY → Direct mode
  */
 export async function POST(req: NextRequest) {
   try {
-    const { employees } = await req.json();
+    const body = await req.json();
+    const { employees, walletPassphrase } = body;
 
     if (!employees || !Array.isArray(employees)) {
       return NextResponse.json(
@@ -24,7 +30,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return await handleDirectSigning(employees);
+    // Determine execution mode
+    const hasBitGo =
+      process.env.BITGO_ACCESS_TOKEN && process.env.BITGO_WALLET_ID;
+    const hasDirectKey =
+      process.env.PAYROLL_PRIVATE_KEY || process.env.DEPLOYER_PRIVATE_KEY;
+
+    if (hasBitGo) {
+      return await handleBitGoMode(employees, walletPassphrase);
+    } else if (hasDirectKey) {
+      return await handleDirectSigning(employees);
+    } else {
+      return NextResponse.json(
+        {
+          error:
+            "No payroll method configured. Set BITGO_ACCESS_TOKEN + BITGO_WALLET_ID for BitGo mode, or PAYROLL_PRIVATE_KEY for direct signing.",
+        },
+        { status: 500 },
+      );
+    }
   } catch (error: any) {
     console.error("Payroll run failed:", error);
     return NextResponse.json(
@@ -35,6 +59,145 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+// ──────────────────────────────────────────────
+// BitGo Enterprise Mode
+// ──────────────────────────────────────────────
+
+/**
+ * BitGo mode: Proxy the payroll request to the backend Express server
+ * which handles the BitGo SDK integration.
+ *
+ * If the backend is not available, fall back to a direct BitGo SDK call
+ * from the Next.js API route.
+ */
+async function handleBitGoMode(
+  employees: Array<{
+    ensName?: string;
+    metaPublicKey: string;
+    amountETH: string;
+  }>,
+  walletPassphrase?: string,
+) {
+  if (!walletPassphrase) {
+    return NextResponse.json(
+      { error: "Missing walletPassphrase (required for BitGo mode)" },
+      { status: 400 },
+    );
+  }
+
+  // Try to proxy to the backend server first
+  const backendUrl = process.env.BACKEND_URL || "http://localhost:4000";
+
+  try {
+    console.log(
+      `🏦 Proxying payroll to backend: ${backendUrl}/api/payroll/run`,
+    );
+    const backendRes = await fetch(`${backendUrl}/api/payroll/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ employees, walletPassphrase }),
+    });
+
+    const data = await backendRes.json();
+
+    if (!backendRes.ok) {
+      throw new Error(data.error || "Backend payroll request failed");
+    }
+
+    return NextResponse.json({
+      ...data,
+      mode: "bitgo",
+    });
+  } catch (backendError: any) {
+    console.warn(
+      `⚠️ Backend proxy failed: ${backendError.message}. Falling back to direct BitGo call...`,
+    );
+
+    // Fall back to direct BitGo SDK call from Next.js
+    return await handleBitGoDirectCall(employees, walletPassphrase);
+  }
+}
+
+/**
+ * Direct BitGo SDK call from the Next.js API route (fallback when backend is unavailable).
+ */
+async function handleBitGoDirectCall(
+  employees: Array<{
+    ensName?: string;
+    metaPublicKey: string;
+    amountETH: string;
+  }>,
+  walletPassphrase: string,
+) {
+  // Dynamically import BitGo to avoid bundling issues
+  const { BitGo } = await import("bitgo");
+
+  const accessToken = process.env.BITGO_ACCESS_TOKEN!;
+  const walletId = process.env.BITGO_WALLET_ID!;
+  const coin = process.env.BITGO_COIN || "tbaseeth";
+  const env = (process.env.BITGO_ENV as "test" | "prod") || "test";
+
+  const bitgo = new BitGo({ env });
+  bitgo.authenticateWithAccessToken({ accessToken });
+
+  // 1. Generate stealth addresses
+  const ephemeralKeys: Array<{
+    ensName?: string;
+    ephemeralPublicKey: string;
+    stealthAddress: string;
+  }> = [];
+
+  const recipients: Array<{ address: string; amount: string }> = [];
+
+  for (const emp of employees) {
+    if (!emp.metaPublicKey) {
+      return NextResponse.json(
+        {
+          error: `Employee ${emp.ensName || "unknown"} is missing a stealth meta public key`,
+        },
+        { status: 400 },
+      );
+    }
+
+    const result = generateStealthPayment(emp.metaPublicKey);
+    ephemeralKeys.push({
+      ensName: emp.ensName,
+      ephemeralPublicKey: result.ephemeralPublicKey,
+      stealthAddress: result.stealthAddress,
+    });
+    recipients.push({
+      address: result.stealthAddress,
+      amount: emp.amountETH,
+    });
+  }
+
+  // 2. Execute batch transaction via BitGo
+  console.log(`🏦 BitGo direct call: Loading wallet on ${coin}...`);
+  const ethWallet = await bitgo.coin(coin).wallets().get({ id: walletId });
+
+  console.log(`🚀 Broadcasting ${recipients.length} stealth payments...`);
+  const transaction = await ethWallet.sendMany({
+    recipients,
+    walletPassphrase,
+    message: `PrivaRoll Batch Run - ${new Date().toISOString()}`,
+  });
+
+  const txHash = transaction.txid || transaction.hash || "pending";
+
+  return NextResponse.json({
+    success: true,
+    mode: "bitgo",
+    txHash,
+    ephemeralKeys,
+    recipientCount: employees.length,
+    timestamp: new Date().toISOString(),
+  });
+}
+
+// ──────────────────────────────────────────────
+// Direct Signing Mode (Fallback)
+// ──────────────────────────────────────────────
 
 /**
  * Direct signing mode: Use ethers.js to send transactions directly.
@@ -142,6 +305,7 @@ async function handleDirectSigning(
 
   return NextResponse.json({
     success: true,
+    mode: "direct",
     txHash: primaryTxHash,
     allTxHashes: txHashes,
     ephemeralKeys,
