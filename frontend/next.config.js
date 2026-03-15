@@ -1,7 +1,19 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Enable webpack 5 experiments for noble/secp256k1 and BitGo SDK
+  // Next.js 14: use experimental.serverComponentsExternalPackages
+  // to keep BitGo SDK and its problematic deps out of the webpack bundle
+  experimental: {
+    serverComponentsExternalPackages: [
+      "bitgo",
+      "eccrypto",
+      "@wasmer/wasi",
+      "casper-js-sdk",
+      "@bitgo/sdk-core",
+      "@bitgo/sdk-coin-cspr",
+      "@bitgo/sdk-lib-mpc",
+    ],
+  },
   webpack: (config, { isServer }) => {
     if (!isServer) {
       // Client-side: polyfill/stub Node.js modules
@@ -22,8 +34,6 @@ const nextConfig = {
     }
     return config;
   },
-  // Ensure BitGo SDK is only used in server-side API routes
-  serverExternalPackages: ["bitgo"],
 };
 
 module.exports = nextConfig;
