@@ -85,7 +85,7 @@ export default function HomePage() {
           className="text-6xl md:text-7xl font-bold mb-4"
         >
           <span className="bg-gradient-to-r from-neon-indigo via-neon-cyan to-neon-indigo bg-clip-text text-transparent bg-[length:200%_auto] animate-gradient-text">
-            FHEPay
+            PrivaRoll
           </span>
         </motion.h1>
 

@@ -4,7 +4,7 @@ import { Providers } from "./providers";
 import ClientLayout from "./client-layout";
 
 export const metadata: Metadata = {
-  title: "FHEPay — Private Web3 Payroll on Base",
+  title: "PrivaRoll — Private Web3 Payroll on Base",
   description:
     "Enterprise payroll with stealth addresses on Base EVM. Public solvency, unlinkable distributions.",
   icons: {

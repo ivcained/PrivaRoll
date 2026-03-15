@@ -35,7 +35,7 @@ export default function Navbar() {
             🛡️
           </motion.span>
           <span className="text-lg font-bold bg-gradient-to-r from-neon-indigo to-neon-cyan bg-clip-text text-transparent group-hover:from-neon-cyan group-hover:to-neon-indigo transition-all duration-500">
-            FHEPay
+            PrivaRoll
           </span>
           <span className="hidden sm:inline-block text-[10px] text-neon-indigo/50 font-mono border border-neon-indigo/20 rounded px-1.5 py-0.5">
             v1.0
