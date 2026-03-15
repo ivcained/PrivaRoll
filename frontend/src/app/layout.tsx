@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
+import ClientLayout from "./client-layout";
 
 export const metadata: Metadata = {
-  title: "PrivaRoll — Private Web3 Payroll on Base",
+  title: "FHEPay — Private Web3 Payroll on Base",
   description:
     "Enterprise payroll with stealth addresses on Base EVM. Public solvency, unlinkable distributions.",
   icons: {
@@ -19,7 +20,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen bg-base-dark text-white antialiased">
-        <Providers>{children}</Providers>
+        <Providers>
+          <ClientLayout>{children}</ClientLayout>
+        </Providers>
       </body>
     </html>
   );
